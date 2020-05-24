@@ -1,0 +1,59 @@
+# Batching trigger set run only on a adf_publish branch
+# build folder is not watched
+
+trigger:
+  batch: true
+  branches:
+    include:
+      - adf_publish 
+    exclude:
+      - master
+  paths:
+    exclude:
+      - build/* 
+    include:
+      - "*"
+
+
+# Adjust variables, set a dummy product name, environment and a name of the subscription
+
+variables:
+   ProductName: "azdo-adv-yaml"
+   Subscription: "Visual Studio Enterprise Subscription(057c6407-ffc7-411f-b995-deed52ec03e5)"
+
+
+# The build agent is based on Windows OS. 
+# Linux agents have some differences in available commands and folder paths expressions, etc
+pool:
+   vmImage: "windows-latest"
+
+
+stages:
+
+# Build  ------------------------------------------------------------
+
+# Run a build job 
+  - template: stages\build.yaml  
+    parameters:
+      displayName: 'Build a code'
+
+
+# Deploy  ------------------------------------------------------------
+
+# Deploy to staging
+  - template: stages\deploy.yaml  
+    parameters:
+      Environment: 'stg'      
+      ProductName: '${{ variables.ProductName }}'
+      Subscription: '${{ variables.Subscription }}'
+
+
+# Deploy to production
+  - template: stages\deploy.yaml  
+    parameters:
+      Environment: 'prd'      
+      ProductName: '${{ variables.ProductName }}'
+      Subscription: '${{ variables.Subscription }}'      
+
+
+

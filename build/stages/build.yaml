@@ -1,0 +1,62 @@
+parameters:
+- name: displayName  
+  type: string
+  default: 'Build'
+
+
+
+
+stages:
+
+- stage: Build
+  displayName: 'Build Stage'
+  
+  jobs:  
+  - job: Build
+    displayName: ${{ parameters.displayName }}
+
+    steps:
+
+
+    # Step 1: Checkout code into a local folder src
+    - checkout: self
+      path: src
+
+
+    # Step 1a: Debugging - print the output of the command tree of artifacts folder
+    - powershell: |
+        tree "$(Pipeline.Workspace)\src" /F
+
+        dir "$(Pipeline.Workspace)\src" 
+      displayName: "Debug: Show a directory tree"
+
+
+    # Step 2a: Find arm json files for a deployment of blank adf in a src and copy them into the artifact staging folder
+    - task: CopyFiles@2  
+      inputs:
+        SourceFolder: '$(Pipeline.Workspace)\src\resources\arm\blank-adf'
+        Contents: '**/*.json'
+        TargetFolder: '$(build.artifactstagingdirectory)\arm'
+        CleanTargetFolder: true
+        OverWrite: true
+      displayName: 'Extra ARM - Blank ADF Service'
+      enabled: true
+
+
+    # Step 2b: Find other adf files, which will deploy pipelines, datasets and so on  in a folder adf_publish and copy them into the artifact folder
+    - task: CopyFiles@2  
+      inputs:
+        SourceFolder: '$(Pipeline.Workspace)\src'
+        Contents: '**/*ForFactory.json'
+        TargetFolder: '$(build.artifactstagingdirectory)\adf_publish'
+        CleanTargetFolder: true
+        OverWrite: true
+        flattenFolders: true
+      displayName: 'Extract ARM - ADF Pipelines'
+      
+      
+    # Step 3: Publish the artifacts
+    - publish: $(build.artifactstagingdirectory)
+      artifact: drop
+      displayName: 'Publish artifacts'
+

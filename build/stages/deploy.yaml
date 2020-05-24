@@ -1,0 +1,75 @@
+parameters:
+
+- name: Environment 
+  default: 'stg'
+
+- name: Subscription
+  default: 'yourSubscription' 
+
+- name: ProductName
+  default: 'prd1'
+
+
+
+
+stages:
+
+- stage: DeployRing_${{ parameters.Environment }}
+  displayName: 'Deploy to ${{ parameters.Environment }} Ring'
+  
+  
+  jobs:      
+
+  - deployment: DeployADF
+    displayName: Deploy ADF
+
+    environment: 'env-adf-${{ parameters.ProductName }}-${{ parameters.Environment }}'
+
+    variables:
+      
+      Subscription: '${{ parameters.Subscription }}'
+      Environment: '${{ parameters.Environment }}'
+      ProductName: '${{ parameters.ProductName }}'
+
+    strategy: 
+      runOnce:
+        deploy:             
+
+          steps:
+
+
+          - download: current
+            artifact: drop
+
+
+          - task: AzureResourceManagerTemplateDeployment@3
+            inputs:
+              deploymentScope: 'Resource Group'
+              azureResourceManagerConnection: '$(Subscription)'
+              action: 'Create Or Update Resource Group'
+              resourceGroupName: 'rg-$(ProductName)-$(Environment)'
+              location: 'West Europe'
+              templateLocation: 'Linked artifact'
+              csmFile: '$(Pipeline.Workspace)\drop\arm\template.json'
+              csmParametersFile: '$(Pipeline.Workspace)\drop\arm\parameters.json'
+              overrideParameters: '-name "df-$(ProductName)-$(Environment)"'
+              deploymentMode: 'Incremental'
+            displayName: Deploy ADF Service
+            enabled: true
+
+
+          # Step 5: Deploy Azure Data Factory Objects like pipelines, dataflows using ARM templates that ADF generate during each publish event
+          - task: AzureResourceManagerTemplateDeployment@3
+            inputs:
+              deploymentScope: 'Resource Group'
+              azureResourceManagerConnection: '$(Subscription)'
+              action: 'Create Or Update Resource Group'
+              resourceGroupName: 'rg-$(ProductName)-$(Environment)'
+              location: 'West Europe'
+              templateLocation: 'Linked artifact'
+              csmFile: '$(Pipeline.Workspace)\drop\adf_publish\ARMTemplateForFactory.json'
+              csmParametersFile: '$(Pipeline.Workspace)\drop\adf_publish\ARMTemplateParametersForFactory.json'
+              overrideParameters: '-factoryName "df-$(ProductName)-$(Environment)"'
+              deploymentMode: 'Incremental'
+            displayName: Deploy ADF Pipelines
+            enabled: true
